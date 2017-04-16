@@ -1,0 +1,12 @@
+top box - 800 x 73
+bottom left box - 400 x 407
+bottom right box - 400 x 407
+
+recycle and win - x 168 y 7
+left image |size 300 x 320 |x 50 y 80
+right image | size 300 x 320 |x 50 y 80
+
+the two text boxes at the bottom is centralized to the middle of the boxes
+title:30 label:15
+
+txtbox , pos = (168,414)
