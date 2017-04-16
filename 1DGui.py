@@ -1,4 +1,8 @@
 import kivy
+import random
+import time 
+# import RPi.GPIO as GPIO
+
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition
 from kivy.lang import Builder
@@ -12,9 +16,16 @@ from kivy.uix.progressbar import ProgressBar
 from kivy.core.window import Window
 from kivy.graphics import Color
 from kivy.graphics import Rectangle
-import random
-import time 
+from kivy.clock import Clock
 from firebase import firebase
+
+#Assign Pins
+ind_sensor = 12
+
+#GPIO Pins Setup
+# GPIO.setmode(GPIO.BCM)
+# GPIO.setup(ind_sensor,GPIO.IN,GPIO.PUD_DOWN)
+
 
 #Set up firebase database
 url = 'https://dw1d-recycling.firebaseio.com/'
@@ -50,7 +61,6 @@ class HomeScreen(Screen):
 
     def __init__(self, **kwargs):
         Screen.__init__(self,**kwargs)
-
         #Layouts
         mainlayout = BoxLayout( orientation = "vertical" )
         titlelayout = BoxLayout(size = (800,73), size_hint = (None,None))
@@ -104,6 +114,9 @@ class HomeScreen(Screen):
 class ProfileScreen(Screen):
     def __init__(self, **kwargs):
         Screen.__init__(self, **kwargs)
+        #inductive sensor initialization
+        # self.indState = GPIO.LOW
+        # Clock.schedule_interval(self.inductiveSense, 0.1)
         #Layouts
         mainlayout = BoxLayout(orientation = 'horizontal')
         column1 = BoxLayout(orientation = 'vertical', size = (420,480), size_hint = (None,None))
@@ -187,9 +200,9 @@ class ProfileScreen(Screen):
 
         #creating and adding widgets under counterlayout
         canImage = Image(source = '2nd page/can.png')
-        cansCounter = ProgressBar(max = 50)
+        self.cansCounter = ProgressBar(max = 20)
         canImgAnchor.add_widget(canImage)
-        cansCounterAnchor.add_widget(cansCounter)
+        cansCounterAnchor.add_widget(self.cansCounter)
         counterlayout.add_widget(canImgAnchor)
         counterlayout.add_widget(cansCounterAnchor)
 
@@ -227,22 +240,32 @@ class ProfileScreen(Screen):
         self.resultLabel.text = ''
         if token == 3:
             self.spinwheel.source = '2nd page/win_wheel.gif'
+            Clock.schedule_once(self.Win, 10)
             self.spinwheel.reload()
-            # time.sleep(3)
-            self.resultLabel.text = '[color=ff6409]You Win! \n Congratulations![/color]'
            
-
         else:
             self.spinwheel.source = '2nd page/wheel.gif'
+            Clock.schedule_once(self.Lose, 10)
             self.spinwheel.reload()
-            # time.sleep(3)
-            self.resultLabel.text = '[color=ff6409]You Lose. \n Try Again Next Time![/color]'
-            
+
+    def Win(self, instance):
+        self.resultLabel.text = '[color=ff6409]You Win! \n Congratulations![/color]'
     
+    def Lose(self, instance):
+        self.resultLabel.text = '[color=ff6409]You Lose. \n Try Again Next Time![/color]'
+        
+        
+              
     def refresh_result(self,instance):
         # self.spinwheel.reload()
         self.resultLabel.text = ''
 
+    # def inductiveSense(self,*args):
+    #     if GPIO.input(ind_sensor) == GPIO.LOW and self.indState == GPIO.LOW:
+    #         self.cansCounter.value += 1
+    #         self.indState = GPIO.HIGH
+    #     if GPIO.input(ind_sensor) == GPIO.HIGH:
+    #         self.indState = GPIO.LOW
         
     
     def change_to_home(self,value):
