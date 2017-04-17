@@ -215,12 +215,12 @@ class ProfileScreen(Screen):
         counterlayout.add_widget(cansCounterAnchor)
 
         #Button to run jackpot machine
-        self.spin_button = SpinButton(text = '[color=ff67a4]SPIN[/color]', on_touch_up = self.SpinningWheel, on_touch_down = self.refresh_result)
+        self.spin_button = SpinButton(text = '[color=ff67a4]SPIN[/color]', on_touch_up = self.SpinningWheel, on_press = self.refresh_result)
         btnAnchor.add_widget(self.spin_button)
         btnlayoutBg.add_widget(btnAnchor)
 
         #creating and adding widgets under col2 of mainlayout
-        logoutBtn = LogoutButton(text = '[color=95989a]Log Off[/color]', on_touch_up = self.change_to_home)
+        logoutBtn = LogoutButton(text = '[color=95989a]Log Off[/color]', on_press = self.change_to_home)
         logoffbox.add_widget(logoutBtn)
         spinwheelneedle = Image(source = '2nd page/wheelneedle.png')
         spinwheelneedlebox.add_widget(spinwheelneedle)
