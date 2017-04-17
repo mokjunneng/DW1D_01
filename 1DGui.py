@@ -1,7 +1,12 @@
-import kivy
+from firebase import firebase
+from Read import ReadRFID
 import random
-import time 
-import RPi.GPIO as GPIO
+import time
+import thread 
+
+# import RPi.GPIO as GPIO
+#import kivy APIs
+import kivy
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition
 from kivy.lang import Builder
@@ -12,18 +17,18 @@ from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.image import Image, AsyncImage
 from kivy.uix.progressbar import ProgressBar
-from kivy.core.window import Window
+from kivy.core.window import Window 
 from kivy.graphics import Color
 from kivy.graphics import Rectangle
 from kivy.clock import Clock
-from firebase import firebase
+
 
 #Assign Pins
 ind_sensor = 12
 
 #GPIO Pins Setup
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(ind_sensor,GPIO.IN,GPIO.PUD_DOWN)
+# GPIO.setmode(GPIO.BCM)
+# GPIO.setup(ind_sensor,GPIO.IN,GPIO.PUD_DOWN)
 
 
 #Set up firebase database
@@ -60,6 +65,10 @@ class HomeScreen(Screen):
 
     def __init__(self, **kwargs):
         Screen.__init__(self,**kwargs)
+        try:
+            thread.start_new_thread(ReadRFID())
+        except:
+            print "Error: unable to start thread"
         #Layouts
         mainlayout = BoxLayout( orientation = "vertical" )
         titlelayout = BoxLayout(size = (800,73), size_hint = (None,None))
@@ -103,10 +112,17 @@ class HomeScreen(Screen):
         mainlayout.add_widget(imgboxlayout)
 
         self.add_widget(mainlayout)
+
+        #Read RFID reader
+        self.readRFID()
     
     def change_to_profile(self, touch, value):
         self.manager.transition.direction = 'left'
         self.manager.current = 'Profile'
+
+    def readRFID(self):
+        While True:
+
 
 
 
@@ -114,8 +130,8 @@ class ProfileScreen(Screen):
     def __init__(self, **kwargs):
         Screen.__init__(self, **kwargs)
         #inductive sensor initialization
-        self.indState = GPIO.LOW
-        Clock.schedule_interval(self.inductiveSense, 0.1)
+        # self.indState = GPIO.LOW
+        # Clock.schedule_interval(self.inductiveSense, 0.1)
         #Layouts
         mainlayout = BoxLayout(orientation = 'horizontal')
         column1 = BoxLayout(orientation = 'vertical', size = (420,480), size_hint = (None,None))
@@ -259,12 +275,12 @@ class ProfileScreen(Screen):
         # self.spinwheel.reload()
         self.resultLabel.text = ''
 
-    def inductiveSense(self,*args):
-        if GPIO.input(ind_sensor) == GPIO.LOW and self.indState == GPIO.LOW:
-            self.cansCounter.value += 1
-            self.indState = GPIO.HIGH
-        if GPIO.input(ind_sensor) == GPIO.HIGH:
-            self.indState = GPIO.LOW
+    # def inductiveSense(self,*args):
+    #     if GPIO.input(ind_sensor) == GPIO.LOW and self.indState == GPIO.LOW:
+    #         self.cansCounter.value += 1
+    #         self.indState = GPIO.HIGH
+    #     if GPIO.input(ind_sensor) == GPIO.HIGH:
+    #         self.indState = GPIO.LOW
         
     
     def change_to_home(self,value):
