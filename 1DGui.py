@@ -1,5 +1,5 @@
 from firebase import firebase
-from Read import ReadRFID
+# from Read import ReadRFID
 import random
 import time
 # import thread 
