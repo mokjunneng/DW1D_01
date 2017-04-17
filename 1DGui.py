@@ -120,11 +120,6 @@ class HomeScreen(Screen):
         self.manager.transition.direction = 'left'
         self.manager.current = 'Profile'
 
-    def readRFID(self):
-        While True:
-
-
-
 
 class ProfileScreen(Screen):
     def __init__(self, **kwargs):
