@@ -248,13 +248,15 @@ class ProfileScreen(Screen):
         self.resultLabel.text = ''
         if token == 3:
             self.spinwheel.source = '2nd page/win_wheel.gif'
-            Clock.schedule_once(self.Win, 10)
             self.spinwheel.reload()
+            Clock.schedule_once(self.Win, 3)
+            
            
         else:
             self.spinwheel.source = '2nd page/wheel.gif'
-            Clock.schedule_once(self.Lose, 10)
             self.spinwheel.reload()
+            Clock.schedule_once(self.Lose, 3)
+            
 
     def Win(self, instance):
         self.resultLabel.text = '[color=ff6409]You Win! \n Congratulations![/color]'
