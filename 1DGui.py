@@ -1,8 +1,7 @@
 import kivy
 import random
 import time 
-# import RPi.GPIO as GPIO
-
+import RPi.GPIO as GPIO
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition
 from kivy.lang import Builder
@@ -23,8 +22,8 @@ from firebase import firebase
 ind_sensor = 12
 
 #GPIO Pins Setup
-# GPIO.setmode(GPIO.BCM)
-# GPIO.setup(ind_sensor,GPIO.IN,GPIO.PUD_DOWN)
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(ind_sensor,GPIO.IN,GPIO.PUD_DOWN)
 
 
 #Set up firebase database
@@ -115,8 +114,8 @@ class ProfileScreen(Screen):
     def __init__(self, **kwargs):
         Screen.__init__(self, **kwargs)
         #inductive sensor initialization
-        # self.indState = GPIO.LOW
-        # Clock.schedule_interval(self.inductiveSense, 0.1)
+        self.indState = GPIO.LOW
+        Clock.schedule_interval(self.inductiveSense, 0.1)
         #Layouts
         mainlayout = BoxLayout(orientation = 'horizontal')
         column1 = BoxLayout(orientation = 'vertical', size = (420,480), size_hint = (None,None))
@@ -260,12 +259,12 @@ class ProfileScreen(Screen):
         # self.spinwheel.reload()
         self.resultLabel.text = ''
 
-    # def inductiveSense(self,*args):
-    #     if GPIO.input(ind_sensor) == GPIO.LOW and self.indState == GPIO.LOW:
-    #         self.cansCounter.value += 1
-    #         self.indState = GPIO.HIGH
-    #     if GPIO.input(ind_sensor) == GPIO.HIGH:
-    #         self.indState = GPIO.LOW
+    def inductiveSense(self,*args):
+        if GPIO.input(ind_sensor) == GPIO.LOW and self.indState == GPIO.LOW:
+            self.cansCounter.value += 1
+            self.indState = GPIO.HIGH
+        if GPIO.input(ind_sensor) == GPIO.HIGH:
+            self.indState = GPIO.LOW
         
     
     def change_to_home(self,value):
