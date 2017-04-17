@@ -2,9 +2,9 @@ from firebase import firebase
 from Read import ReadRFID
 import random
 import time
-import thread 
+# import thread 
 
-import RPi.GPIO as GPIO
+# import RPi.GPIO as GPIO
 #import kivy APIs
 import kivy
 from kivy.app import App
@@ -27,8 +27,8 @@ from kivy.clock import Clock
 ind_sensor = 12
 
 #GPIO Pins Setup
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(ind_sensor,GPIO.IN,GPIO.PUD_DOWN)
+# GPIO.setmode(GPIO.BCM)
+# GPIO.setup(ind_sensor,GPIO.IN,GPIO.PUD_DOWN)
 
 
 #Set up firebase database
@@ -65,10 +65,10 @@ class HomeScreen(Screen):
 
     def __init__(self, **kwargs):
         Screen.__init__(self,**kwargs)
-        try:
-            thread.start_new_thread(ReadRFID())
-        except:
-            print "Error: unable to start thread"
+        # try:
+        #     thread.start_new_thread(ReadRFID())
+        # except:
+        #     print "Error: unable to start thread"
         #Layouts
         mainlayout = BoxLayout( orientation = "vertical" )
         titlelayout = BoxLayout(size = (800,73), size_hint = (None,None))
@@ -123,8 +123,8 @@ class ProfileScreen(Screen):
     def __init__(self, **kwargs):
         Screen.__init__(self, **kwargs)
         #inductive sensor initialization
-        self.indState = GPIO.LOW
-        Clock.schedule_interval(self.inductiveSense, 0.1)
+        # self.indState = GPIO.LOW
+        # Clock.schedule_interval(self.inductiveSense, 0.1)
         #Layouts
         mainlayout = BoxLayout(orientation = 'horizontal')
         column1 = BoxLayout(orientation = 'vertical', size = (420,480), size_hint = (None,None))
@@ -268,12 +268,12 @@ class ProfileScreen(Screen):
         # self.spinwheel.reload()
         self.resultLabel.text = ''
 
-    def inductiveSense(self,*args):
-        if GPIO.input(ind_sensor) == GPIO.LOW and self.indState == GPIO.LOW:
-            self.cansCounter.value += 1
-            self.indState = GPIO.HIGH
-        if GPIO.input(ind_sensor) == GPIO.HIGH:
-            self.indState = GPIO.LOW
+    # def inductiveSense(self,*args):
+    #     if GPIO.input(ind_sensor) == GPIO.LOW and self.indState == GPIO.LOW:
+    #         self.cansCounter.value += 1
+    #         self.indState = GPIO.HIGH
+    #     if GPIO.input(ind_sensor) == GPIO.HIGH:
+    #         self.indState = GPIO.LOW
         
     
     def change_to_home(self,value):
