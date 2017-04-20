@@ -1,11 +1,11 @@
 from firebase import firebase
-#from Read import ReadRFID
 import random
 import time
 import threading
+from threading import Thread
 import zmq
-
 import RPi.GPIO as GPIO
+
 #import kivy APIs
 import kivy
 from kivy.app import App
@@ -23,14 +23,15 @@ from kivy.graphics import Color
 from kivy.graphics import Rectangle
 from kivy.clock import Clock
 
-
 #Assign Pins
-ind_sensor = 12
+ind_sensor = 26 #12 
 motor_pin = 19
+micro_sw = 23 #17
 
 #GPIO Pins Setup
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(ind_sensor,GPIO.IN,GPIO.PUD_DOWN)
+GPIO.setup(micro_sw,GPIO.IN,GPIO.PUD_DOWN)
 GPIO.setup(motor_pin, GPIO.OUT)
 
 #Set up firebase database
@@ -65,22 +66,81 @@ class LogoutButton(Button):
         self.background_down = '2nd page/log off text_pressed.png'  
         self.nocache = True
 
-# class readCard(threading.Thread):
-#     def __init__(self):
-#         super(readCard,self).__init__()
-#         pass
-        
-#     def run(self):
-#         ReadRFID()
+#Thread to run RFID reader
+class ZmqThread(Thread):
+    def __init__(self, screen):
+        super(ZmqThread, self).__init__()
+        self.screen = screen
+        #entire python program exits when only daemon threads are left
+        self.daemon = True 
 
+    #runs when thread starts
+    def run(self):
+        screen = self.screen
+        #connects to zmq server to retrieve id data send by RFID reader
+        self._context = zmq.Context()
+        self._socket = self._context.socket(zmq.PAIR)
+        self._socket.connect('tcp://localhost:5555')
+        #gets the ids of existing users from firebase
+        idlist = firebase.get('/idlist')
+        while True:
+            print 'getting data....'
+            #stores id received in a variable
+            data = self._socket.recv()
+            print data
+            if data in idlist.values():
+                #checks the user for the respective id detected
+                self.user = idlist.keys()[idlist.values().index(data)]
+                print self.user
+                screen.profileUpdate()
+            #if new id is registered, it will add a new child node under the idlist 
+            else:
+                new_user_no = int(len(idlist.keys())) + 1
+                firebase.put('/','/idlist', 'user'+ str(new_user_no), data)
+                screen.profileUpdate()
+
+class StartScreen(Screen):
+
+    def __init__(self,**kwargs):
+        Screen.__init__(self,**kwargs)
+        layout = AnchorLayout()
+        ss_img = Image(source = '2nd page/start_screen_01.png', on_touch_down = self.change_to_home, nocache = True)
+        layout.add_widget(ss_img)
+        self.add_widget(layout)
+    
+    #creates the RFID thread
+    def zmq_connect(self):
+        self._zthread = ZmqThread(self)
+        self._zthread.start()
+
+    #after ID detected, checks corresponding user data from firebase,
+    #then updates the details on the next screen accordingly
+    def profileUpdate(self):
+        user = self._zthread.user
+        print user
+        profile = firebase.get('/'+ str(user))
+        sc_profile=self.manager.get_screen('Profile')
+        sc_profile.profileName.text = profile['name']
+        sc_profile.profilePic.source = profile['profilePic']
+        sc_profile.profileRank.text = profile['title']
+        sc_profile.crownPic.source = profile['rank']
+        self.change_to_profile()
+
+    #switch to home screen
+    def change_to_home(self, touch, instance):
+        self.manager.transition.direction = 'left'
+        self.manager.current = 'Home'
+        self.zmq_connect()
+
+    #switch to profile screen
+    def change_to_profile(self):
+        self.manager.transition.direction = 'left'
+        self.manager.current = 'Profile'
+        
 class HomeScreen(Screen):
 
     def __init__(self, **kwargs):
         Screen.__init__(self,**kwargs)
-        # rc = readCard()
-        # rc.start()
-        # Clock.schedule_interval(ReadRFID(),0.1)
-        
         #Layouts
         mainlayout = BoxLayout( orientation = "vertical" )
         titlelayout = BoxLayout(size = (800,73), size_hint = (None,None))
@@ -100,15 +160,17 @@ class HomeScreen(Screen):
         #creating sub-widgets
         image1 = Image(source = 'final project/instruction_left.png', nocache = True)
         image2 = Image(source = 'final project/instruction_right.png', nocache = True)
-        hometitle = Label(text = "[color=fff8df]Recycle to Win![/color]", font_name = "Pixeled", font_size = 30,markup=True, on_touch_down = self.change_to_profile)
-        label1 = HomeLabel(text = '[color=ff0000]Please Scan your ID[/color]',on_touch_down = self.change_to_profile, size_hint = (None,None), markup=True)
+        hometitle = Label(text = "[color=fff8df]Recycle to Win![/color]", font_name = "Pixeled", font_size = 30,markup=True)
+        label1 = HomeLabel(text = '[color=ff0000]Please Scan your ID[/color]',size_hint = (None,None), markup=True)
         label2 = HomeLabel(text = '[color=056011]Wait for the green light[/color]', size_hint = (None,None), markup=True)
 
         #adding widgets to layout
         img1box.add_widget(image1)
         img2box.add_widget(image2)
+
         label1box.add_widget(label1)
         label2box.add_widget(label2)
+
         titlelayout.add_widget(hometitle)
 
         imgboxcol1background.add_widget(img1box)
@@ -124,19 +186,6 @@ class HomeScreen(Screen):
         mainlayout.add_widget(imgboxlayout)
 
         self.add_widget(mainlayout)
-
-    #     #communcate with rfid over a server
-    #     self.context = zmq.Context()
-    #     self.socket = self.context.socket(zmq.REQ)
-    #     self.socket.connect("tcp://localhost:5555")
-    #     self.readCard()
-    
-    # def readCard(self):
-    #     self.socket.send(b'Read Card')
-    #     message = self.socket.recv()
-    #     if message == '128,61,147,171':
-    #         self.change_to_profile()
-
     
     def change_to_profile(self,instance,touch):
         self.manager.transition.direction = 'left'
@@ -146,9 +195,18 @@ class HomeScreen(Screen):
 class ProfileScreen(Screen):
     def __init__(self, **kwargs):
         Screen.__init__(self, **kwargs)
-        #inductive sensor initialization
+        self.fallEdge = False
+        #starts servo motor      
+        self.myservo = GPIO.PWM(19,50)
+        self.myservo.start(0)
+
+        #starts running inductive sensor 
         self.indState = GPIO.LOW
         Clock.schedule_interval(self.inductiveSense, 0.1)
+
+        Clock.schedule_interval(self.dispense, 0.1)
+        
+
         #Layouts
         mainlayout = BoxLayout(orientation = 'horizontal')
         column1 = BoxLayout(orientation = 'vertical', size = (420,480), size_hint = (None,None))
@@ -173,7 +231,7 @@ class ProfileScreen(Screen):
         btnlayoutBg = AnchorLayout(size = (420,178), size_hint = (None,None))
         btnAnchor = AnchorLayout(size = (314,91), size_hint = (None,None))
 
-        #col2 of mainlyout
+        #col2 of mainlayout
         logoffbox = BoxLayout(orientataion = 'horizontal', size = (380,74), size_hint = (None,None), padding = (155,9,0,9))
         spinwheelbox = AnchorLayout(size = (380,268), size_hint = (None,None))
         spinwheelAnchor = AnchorLayout(size = (268,268), size_hint=(None,None))
@@ -213,16 +271,16 @@ class ProfileScreen(Screen):
         spinwheelneedlebox.canvas.add(Rectangle(size = (380,26), pos = (420,380)))
 
         #creating and adding widgets under userlayout
-        profilePic = Image(source = '2nd page/profilePic.jpg', nocache = True)
-        crownPic = Image(source = '2nd page/lvl2.png', nocache = True)
-        profileName = Label(text = '[color=95989a]Shawn[/color]', markup = True, font_size = 8, font_name = 'Pixeled', size_hint = (None,None))
-        profileRank = Label(text = '[color=7a7a7a]Recycling \n Master[/color]', markup = True, font_size = 30, font_name = 'Pixeled', size_hint = (None,None))
+        self.profilePic = Image(source = '', nocache = True, allow_stretch = True)
+        self.crownPic = Image(source = '', nocache = True)
+        self.profileName = Label(text = '' , markup = True, font_size = 8, font_name = 'Pixeled', size_hint = (None,None))
+        self.profileRank = Label(text = '', markup = True, font_size = 30, font_name = 'Pixeled', size_hint = (None,None))
         
-        profilePicAnchor.add_widget(profilePic)
+        profilePicAnchor.add_widget(self.profilePic)
         profilePicBg.add_widget(profilePicAnchor)
-        crownLayout.add_widget(crownPic)
-        namelayout.add_widget(profileName)
-        rankTitleLayout.add_widget(profileRank)
+        crownLayout.add_widget(self.crownPic)
+        namelayout.add_widget(self.profileName)
+        rankTitleLayout.add_widget(self.profileRank)
         
         usercol1.add_widget(profilePicBg)
         usercol1.add_widget(namelayout)
@@ -233,7 +291,7 @@ class ProfileScreen(Screen):
 
         #creating and adding widgets under counterlayout
         canImage = Image(source = '2nd page/can.png', nocache = True)
-        self.cansCounter = ProgressBar(max = 10)
+        self.cansCounter = ProgressBar(max = 10, value = 0)
         canImgAnchor.add_widget(canImage)
         cansCounterAnchor.add_widget(self.cansCounter)
         counterlayout.add_widget(canImgAnchor)
@@ -249,11 +307,12 @@ class ProfileScreen(Screen):
         logoffbox.add_widget(logoutBtn)
         spinwheelneedle = Image(source = '2nd page/wheelneedle.png', nocache = True)
         spinwheelneedlebox.add_widget(spinwheelneedle)
-        self.spinwheel = Image(source="2nd page/start_wheel.jpg", allow_stretch=True, anim_loop=5, anim_delay=0.05, nocache = True, mipmap = True)
+        self.spinwheel = Image(source="2nd page/start_wheel.jpg", anim_loop=5, anim_delay=0.05, nocache = True, mipmap = True)
         spinwheelAnchor.add_widget(self.spinwheel)
         spinwheelbox.add_widget(spinwheelAnchor)
         self.resultLabel = Label(text = '', markup = True, font_size = 20, font_name = 'Pixeled')
         resultbox.add_widget(self.resultLabel)
+
         column2.add_widget(logoffbox)
         column2.add_widget(spinwheelneedlebox)
         column2.add_widget(spinwheelbox)
@@ -266,7 +325,6 @@ class ProfileScreen(Screen):
         mainlayout.add_widget(column1)
         mainlayout.add_widget(column2)
 
-
         self.add_widget(mainlayout)
     
     def testWheel(self,instance,touch):
@@ -274,12 +332,22 @@ class ProfileScreen(Screen):
             self.SpinningWheel()
         
     def SpinningWheel(self):
+
+        #algorithm to calculate the chance of winning a can based on
+        #the number of cans recycled (for demo purpose, algo is rather simple)
         cansRecycled = self.cansCounter.value
         token = random.randint(cansRecycled,10)
+
+        #uploads cans recycled data to firebase
+        firebase.put('/','/totalcans',self.cansCounter.value)
+
+        #refreshes the cans counter progress bar
         self.cansCounter.value = 0
+
         if token == 10:
             self.spinwheel.source = '2nd page/wheel_winner.zip'
             self.spinwheel.reload()
+            #runs after 3 seconds
             Clock.schedule_once(self.Win, 3)
 
         else:
@@ -289,55 +357,52 @@ class ProfileScreen(Screen):
 
     def Win(self, instance):
         self.resultLabel.text = '[color=ff6409]You Win! \n Congratulations![/color]'
-        self.myservo = GPIO.PWM(19,50)
-        self.myservo.start(6.69)
-        Clock.schedule_once(self.dispenseCan,1)
-
-    def dispenseCan(self,instance):
-        self.myservo.ChangeDutyCycle(0)
+        #overrides the micro switch and rotate the motor
+        self.myservo.ChangeDutyCycle(6.69)
     
     def Lose(self, instance):
         self.resultLabel.text = '[color=ff6409]You Lose. \n Try Again Next Time![/color]'
-        
+    
+    #refresh the result display when button is pressed
     def refresh_result(self,instance):
         self.resultLabel.text = ''
-
+    
+    #function to detect falling cans
     def inductiveSense(self,*args):
         if GPIO.input(ind_sensor) == GPIO.LOW and self.indState == GPIO.LOW:
             self.cansCounter.value += 1
             self.indState = GPIO.HIGH
         if GPIO.input(ind_sensor) == GPIO.HIGH:
             self.indState = GPIO.LOW
-        
+    
+    #implements micro switch to stops the motor from running after it rotates for a quarter cycle
+    def dispense(self,*args):
+        if GPIO.input(micro_sw)==GPIO.HIGH and self.fallEdge == True:
+            self.myservo.ChangeDutyCycle(0)
+            self.fallEdge = False
+        elif GPIO.input(micro_sw)==GPIO.LOW and self.fallEdge == False:
+            self.myservo.ChangeDutyCycle(6.69)
+            self.fallEdge = True
     
     def change_to_home(self,value):
+        self.resultLabel.text = ''
         self.manager.transition.direction = 'right'
         self.manager.current = 'Home'
 
 class RecyclingGUIApp(App):
-    
 
     def build(self):
         Window.size = (800,480)
         sm = ScreenManager()
+        ss = StartScreen(name = 'Start')
         hs = HomeScreen(name = 'Home')
         ps = ProfileScreen(name = 'Profile')
+        sm.add_widget(ss)
         sm.add_widget(hs)
         sm.add_widget(ps)
-        sm.current = 'Home'
-        #communcate with rfid over a server
-        # self.context = zmq.Context()
-        # self.socket = self.context.socket(zmq.REQ)
-        # self.socket.connect("tcp://localhost:5555")
+        sm.current = 'Start'
         return sm
-    
-    # def readCard(self):
-    #     self.socket.send(b'Read Card')
-    #     message = self.socket.recv()
-    #     if message == '128,61,147,171':
-    #         self.change_to_profile()
-        
-
+                
 if __name__=='__main__':
     try:
         RecyclingGUIApp().run()

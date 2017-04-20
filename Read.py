@@ -4,31 +4,37 @@
 import RPi.GPIO as GPIO
 import MFRC522
 import signal
+import zmq 
 
 continue_reading = True
 
-# Capture SIGINT for cleanup when the script is aborted
-def end_read(signal,frame):
-    global continue_reading
-    print "Ctrl+C captured, ending read."
-    continue_reading = False
-    GPIO.cleanup()
-
-# Hook the SIGINT
-signal.signal(signal.SIGINT, end_read)
-
-# Create an object of the class MFRC522
-MIFAREReader = MFRC522.MFRC522()
-
-# Welcome message
-print "Welcome to the MFRC522 data read example"
-print "Press Ctrl-C to stop."
-
-
 class ReadRFID(object):
     def __init__(self):
+        # Capture SIGINT for cleanup when the script is aborted
+        def end_read(signal,frame):
+            global continue_reading
+            print "Ctrl+C captured, ending read."
+            continue_reading = False
+            del self.socket
+            GPIO.cleanup()
+
+        # Hook the SIGINT
+        signal.signal(signal.SIGINT, end_read)
+
+        # Create an object of the class MFRC522
+        MIFAREReader = MFRC522.MFRC522()
+
+        # Welcome message
+        print "Welcome to the MFRC522 data read example"
+        print "Press Ctrl-C to stop."
         # This loop keeps checking for chips. If one is near it will get the UID and authenticate
         global continue_reading
+        
+        #zmq local server for communicating with kivy app
+        context = zmq.Context()
+        self.socket = context.socket(zmq.PAIR)
+        self.socket.bind("tcp://*:5555")
+
         while continue_reading:
             
             # Scan for cards    
@@ -45,8 +51,12 @@ class ReadRFID(object):
             if status == MIFAREReader.MI_OK:
 
                 # Print UID
-                print "Card read UID: "+str(uid[0])+","+str(uid[1])+","+str(uid[2])+","+str(uid[3])
-            
+                UID = str(uid[0])+","+str(uid[1])+","+str(uid[2])+","+str(uid[3])
+                print "Card read UID: "+ UID
+                
+                #send message using zmq server
+                self.socket.send(b'%s'%(UID))
+
                 # This is the default key for authentication
                 key = [0xFF,0xFF,0xFF,0xFF,0xFF,0xFF]
                 
@@ -62,7 +72,6 @@ class ReadRFID(object):
                     MIFAREReader.MFRC522_StopCrypto1()
                 else:
                     print "Authentication error"
-
 
 
 
